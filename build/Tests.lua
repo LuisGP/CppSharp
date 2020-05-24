@@ -100,7 +100,7 @@ function SetupTestGeneratorBuildEvent(name)
     prebuildcommands { runtimeExe .. exePath }
   else
     local exePath = SafePath("%{cfg.buildtarget.directory}/" .. name .. ".Gen.exe")
-    prebuildcommands { runtimeExe .. exePath }
+    prebuildcommands { runtimeExe .. " --trace " .. exePath }
   end
 end
 

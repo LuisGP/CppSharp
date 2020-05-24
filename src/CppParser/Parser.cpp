@@ -32,6 +32,7 @@
 #include <clang/AST/Comment.h>
 #include <clang/AST/DeclFriend.h>
 #include <clang/AST/ExprCXX.h>
+#include <clang/CodeGen/CodeGenAction.h>
 #include <clang/Lex/DirectoryLookup.h>
 #include <clang/Lex/HeaderSearch.h>
 #include <clang/Lex/Preprocessor.h>
@@ -4493,6 +4494,27 @@ ParserResult* Parser::ParseLibrary(const std::string& File)
     return res;
 }
 
+ParserResult* Parser::Build(const std::string& File)
+{
+    llvm::InitializeAllAsmPrinters();
+    Setup();
+
+    std::unique_ptr<::DiagnosticConsumer> DiagClient(new ::DiagnosticConsumer());
+    c->getDiagnostics().setClient(DiagClient.get(), false);
+
+    c->getFrontendOpts().Inputs.clear();
+    c->getFrontendOpts().Inputs.push_back(clang::FrontendInputFile(File, clang::Language::CXX));
+    c->getFrontendOpts().OutputFile = std::string(llvm::sys::path::stem(File)) + ".o";
+
+    llvm::LLVMContext context;
+    std::unique_ptr<clang::CodeGenAction> action = std::make_unique<clang::EmitObjAction>(&context);
+    c->ExecuteAction(*action);
+
+    auto res = new ParserResult();
+    HandleDiagnostics(res);
+    return res;
+}
+
 ParserResult* ClangParser::ParseHeader(CppParserOptions* Opts)
 {
     if (!Opts)
@@ -4531,6 +4553,15 @@ ParserResult* ClangParser::ParseLibrary(CppParserOptions* Opts)
 
     Parser Parser(Opts);
     return Parser.ParseLibrary(Opts->libraryFile);
+}
+
+ParserResult* ClangParser::Build(CppParserOptions* Opts, const std::string& File)
+{
+    if (!Opts)
+        return 0;
+
+    Parser Parser(Opts);
+    return Parser.Build(File);
 }
 
 ParserTargetInfo* Parser::GetTargetInfo()
